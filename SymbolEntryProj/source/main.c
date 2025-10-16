@@ -1,0 +1,186 @@
+/* main.c */
+#include "MCUType.h"                 /* Defines MCU-specific data types */
+#include "os.h"                      /* uC/OS-III header for RTOS functions */
+#include "FRDM_MCXN947_GPIO.h"       /* Board-specific GPIO functions */
+#include "BasicIO.h"                 /* Basic IO functions for console output */
+#include "FRDM_MCXN947ClkCfg.h"      /* Board-specific clock configuration */
+#include "app_cfg.h"                 /* Application configuration */
+#include "CsOS_SW.h"                 /* Switch handling functions */
+#include "menu.h"                    /* Menu handling functions and constants (Very customizable) */
+
+
+/*****************************************************************************************
+* Allocate task control blocks for different tasks.
+*****************************************************************************************/
+static OS_TCB appStartTaskTCB;           /* Task Control Block for the start task */
+static OS_TCB appTaskSymbolSwitchTCB;        /* Task Control Block for Symbol Switch task */
+static OS_TCB appTaskSymbolSendTCB;    /* Task Control Block for symbol output task */
+
+/*****************************************************************************************
+* Allocate stack space for each task.
+*****************************************************************************************/
+static CPU_STK appStartTaskStk[APP_CFG_TASK_START_STK_SIZE];
+static CPU_STK appTaskSymbolSwitchStk[APP_CFG_TASK_SYMBOL_SWITCH_STK_SIZE];
+static CPU_STK appTaskSymbolSendStk[APP_CFG_TASK_SYMBOL_SEND_STK_SIZE];
+
+/*****************************************************************************************
+* Task Function Prototypes.
+*   These tasks are private within this module and are declared here.
+*****************************************************************************************/
+static void appStartTask(void *p_arg);         /* Start task function prototype */
+static void appTaskSymbolSwitch(void *p_arg);      /* Symbol  switch task */
+static void appTaskSymbolSend(void *p_arg);  /* Task for sending symbol output */
+
+/*****************************************************************************************
+* main()
+*****************************************************************************************/
+void main(void) {
+    OS_ERR os_err;
+
+    /* Initialize the clock for the board */
+    FRDM_MCXN947InitBootClock();
+
+    /* Set up Basic IO for console communication at 115200 baud */
+    BIOOpen(BIO_BIT_RATE_115200);
+
+    /* Disable all interrupts at the start (OS will manage interrupts later) */
+    CPU_IntDis();
+
+    /* Initialize uC/OS-III */
+    OSInit(&os_err);
+    assert(os_err == OS_ERR_NONE);  /* Ensure OS initialization is successful */
+
+    /* Create the start task (first task to run) */
+    OSTaskCreate(&appStartTaskTCB,
+                 "Start Task",
+                 appStartTask,
+                 (void *) 0,
+                 APP_CFG_TASK_START_PRIO,
+                 &appStartTaskStk[0],
+                 (APP_CFG_TASK_START_STK_SIZE / 10u),
+                 APP_CFG_TASK_START_STK_SIZE,
+                 0,
+                 0,
+                 (void *) 0,
+                 (OS_OPT_TASK_NONE),
+                 &os_err);
+    assert(os_err == OS_ERR_NONE); /* Ensure task creation is successful */
+
+    /* Start multitasking and give control to uC/OS-III */
+    OSStart(&os_err);
+    assert(0);  /* The program should never reach this point */
+}
+
+
+/*****************************************************************************************
+* STARTUP TASK
+* This task runs once and performs initialization tasks before creating other tasks.
+*****************************************************************************************/
+static void appStartTask(void *p_arg) {
+    OS_ERR os_err;
+
+    (void)p_arg;  /* Avoid unused parameter warning */
+
+    /* Initialize system tick for OS and calculate CPU usage statistics */
+    OS_CPU_SysTickInitFreq(SystemCoreClock);
+    OSStatTaskCPUUsageInit(&os_err);
+
+    /* Initialize LEDs, Debug bits, switches, and touchscreen */
+    GpioLEDGREENInit();
+    GpioLEDREDInit();
+    GpioDBugBitsInit();
+    SwInit();
+
+
+    /* Create the Symbol Switch task */
+    OSTaskCreate(&appTaskSymbolSwitchTCB,
+             "App Task Symbol Switch",
+             appTaskSymbolSwitch,
+             (void *) 0,
+             APP_CFG_TASK_SYMBOL_SWITCH_PRIO,
+             &appTaskSymbolSwitchStk[0],
+             (APP_CFG_TASK_SYMBOL_SWITCH_STK_SIZE / 10u),
+             APP_CFG_TASK_SYMBOL_SWITCH_STK_SIZE,
+             0,
+             0,
+             (void *) 0,
+             (OS_OPT_TASK_NONE),
+             &os_err);
+    assert(os_err == OS_ERR_NONE); /* Ensure task creation is successful */
+
+    /* Create the Symbol Send task */
+    OSTaskCreate(&appTaskSymbolSendTCB,
+             "App Task Symbol Send",
+             appTaskSymbolSend,
+             (void *) 0,
+             APP_CFG_TASK_SYMBOL_SEND_PRIO,
+             &appTaskSymbolSendStk[0],
+             (APP_CFG_TASK_SYMBOL_SEND_STK_SIZE / 10u),
+             APP_CFG_TASK_SYMBOL_SEND_STK_SIZE,
+             0,
+             0,
+             (void *) 0,
+             (OS_OPT_TASK_NONE),
+             &os_err);
+    assert(os_err == OS_ERR_NONE); /* Ensure task creation is successful */
+
+    /* Delete the start task as it is no longer needed */
+    OSTaskDel((OS_TCB *)0, &os_err);
+    assert(os_err == OS_ERR_NONE);
+}
+/*****************************************************************************************
+* TASK #1 - Symbol Switch
+* This task switches between what symbol is being sent over to the device and updates the
+* menu to reflect it
+*****************************************************************************************/
+static void appTaskSymbolSwitch(void *p_arg) {
+    OS_ERR os_err;               /* To catch OS errors */
+    INT32U sw_in = 0;           /* Switch input value */
+
+    (void)p_arg;
+
+    /* Display the initial menu with the first symbol selected */
+    SetCurrentSymbolIndex(0);
+
+    while (1) {
+        sw_in = SwPend(0, &os_err);  /* Block until Switch 2 press */
+        assert(os_err == OS_ERR_NONE); /* Should be no error in the switch press */
+
+        /* Check for Switch 2 press event */
+        if (GPIO_PIN(SW2_BIT) & sw_in) {
+            /* Move to the next symbol in the list, wrapping at SYMBOL_COUNT */
+        	INT8U next_index = (INT8U)((GetCurrentSymbolIndex() + 1) % SYMBOL_COUNT);
+            SetCurrentSymbolIndex(next_index); /* Update index to match next_index and update the display */
+        }
+    }
+}
+
+
+
+
+/*****************************************************************************************
+* TASK #2 - Symbol Send
+* This task handles sending selected symbols over to my device
+*****************************************************************************************/
+static void appTaskSymbolSend(void *p_arg) {
+    OS_ERR os_err;               /* To catch OS errors */
+    INT32U sw_in = 0;            /* Switch input value */
+
+    (void)p_arg;
+    while (1) {
+        sw_in = SwPend(0, &os_err);  /* Block until Switch 3 press */
+        assert(os_err == OS_ERR_NONE);
+
+        /* Check for Switch 3 press */
+        if (GPIO_PIN(SW3_BIT) & sw_in) {
+
+            /* PROTOTYPE CODE TO TEST MY PROGRAM ON */
+        	/* I eventually want something more streamlined */
+            const INT8C *symbol = GetCurrentSymbol();
+            BIOPutStrg("\033[2;1H\033[KYour Current Symbol Is: ");
+            BIOPutStrg(symbol);
+            BIOPutStrg("\033[3;1H\033[KUse copy+paste to bring your symbol over.");
+
+        }
+    }
+}
