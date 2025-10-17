@@ -147,7 +147,7 @@ static void appTaskSymbolSwitch(void *p_arg) {
         assert(os_err == OS_ERR_NONE); /* Should be no error in the switch press */
 
         /* Check for Switch 2 press event */
-        if (GPIO_PIN(SW2_BIT) & sw_in) {
+        if (sw_in == SW2) {
             /* Move to the next symbol in the list, wrapping at SYMBOL_COUNT */
         	INT8U next_index = (INT8U)((GetCurrentSymbolIndex() + 1) % SYMBOL_COUNT);
             SetCurrentSymbolIndex(next_index); /* Update index to match next_index and update the display */
@@ -172,7 +172,7 @@ static void appTaskSymbolSend(void *p_arg) {
         assert(os_err == OS_ERR_NONE);
 
         /* Check for Switch 3 press */
-        if (GPIO_PIN(SW3_BIT) & sw_in) {
+        if (sw_in == SW3) {
 
             /* PROTOTYPE CODE TO TEST MY PROGRAM ON */
         	/* I eventually want something more streamlined */
