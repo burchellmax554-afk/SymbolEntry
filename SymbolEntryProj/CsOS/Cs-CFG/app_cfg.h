@@ -43,8 +43,7 @@
 *********************************************************************************************************
 */
 #define APP_CFG_TASK_START_PRIO              6u
-#define APP_CFG_TASK_SYMBOL_SWITCH_PRIO      8u   /* Replaces old TIMER_OUT task priority */
-#define APP_CFG_TASK_SYMBOL_SEND_PRIO        12u   /* Replaces old TIMER_CTRL task priority */
+#define APP_CFG_TASK_SYMBOL_CONTROL_PRIO      8u   /* Replaces old TIMER_OUT task priority */
 #define APP_CFG_SW_TASK_PRIO                 14u
 
 /*
@@ -53,8 +52,7 @@
 *********************************************************************************************************
 */
 #define APP_CFG_TASK_START_STK_SIZE          128u
-#define APP_CFG_TASK_SYMBOL_SWITCH_STK_SIZE  128u   /* Replaces old TIMER_OUT stack size */
-#define APP_CFG_TASK_SYMBOL_SEND_STK_SIZE    128u   /* Replaces old TIMER_CTRL stack size */
+#define APP_CFG_TASK_SYMBOL_CONTROL_STK_SIZE 128u   /* Replaces old TIMER_OUT stack size */
 #define APP_CFG_SW_TASK_STK_SIZE             128u
 
 #endif

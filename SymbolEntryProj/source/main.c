@@ -13,23 +13,20 @@
 * Allocate task control blocks for different tasks.
 *****************************************************************************************/
 static OS_TCB appStartTaskTCB;           /* Task Control Block for the start task */
-static OS_TCB appTaskSymbolSwitchTCB;        /* Task Control Block for Symbol Switch task */
-static OS_TCB appTaskSymbolSendTCB;    /* Task Control Block for symbol output task */
+static OS_TCB appTaskSymbolControlTCB;        /* Task Control Block for Symbol Control task */
 
 /*****************************************************************************************
 * Allocate stack space for each task.
 *****************************************************************************************/
 static CPU_STK appStartTaskStk[APP_CFG_TASK_START_STK_SIZE];
-static CPU_STK appTaskSymbolSwitchStk[APP_CFG_TASK_SYMBOL_SWITCH_STK_SIZE];
-static CPU_STK appTaskSymbolSendStk[APP_CFG_TASK_SYMBOL_SEND_STK_SIZE];
+static CPU_STK appTaskSymbolControlStk[APP_CFG_TASK_SYMBOL_CONTROL_STK_SIZE];
 
 /*****************************************************************************************
 * Task Function Prototypes.
 *   These tasks are private within this module and are declared here.
 *****************************************************************************************/
 static void appStartTask(void *p_arg);         /* Start task function prototype */
-static void appTaskSymbolSwitch(void *p_arg);      /* Symbol  switch task */
-static void appTaskSymbolSend(void *p_arg);  /* Task for sending symbol output */
+static void appTaskSymbolControl(void *p_arg);      /* Symbol  control task */
 
 /*****************************************************************************************
 * main()
@@ -92,15 +89,15 @@ static void appStartTask(void *p_arg) {
     SwInit();
 
 
-    /* Create the Symbol Switch task */
-    OSTaskCreate(&appTaskSymbolSwitchTCB,
-             "App Task Symbol Switch",
-             appTaskSymbolSwitch,
+    /* Create the Symbol Control task */
+    OSTaskCreate(&appTaskSymbolControlTCB,
+             "App Task Symbol Control",
+             appTaskSymbolControl,
              (void *) 0,
-             APP_CFG_TASK_SYMBOL_SWITCH_PRIO,
-             &appTaskSymbolSwitchStk[0],
-             (APP_CFG_TASK_SYMBOL_SWITCH_STK_SIZE / 10u),
-             APP_CFG_TASK_SYMBOL_SWITCH_STK_SIZE,
+             APP_CFG_TASK_SYMBOL_CONTROL_PRIO,
+             &appTaskSymbolControlStk[0],
+             (APP_CFG_TASK_SYMBOL_CONTROL_STK_SIZE / 10u),
+             APP_CFG_TASK_SYMBOL_CONTROL_STK_SIZE,
              0,
              0,
              (void *) 0,
@@ -108,32 +105,18 @@ static void appStartTask(void *p_arg) {
              &os_err);
     assert(os_err == OS_ERR_NONE); /* Ensure task creation is successful */
 
-    /* Create the Symbol Send task */
-    OSTaskCreate(&appTaskSymbolSendTCB,
-             "App Task Symbol Send",
-             appTaskSymbolSend,
-             (void *) 0,
-             APP_CFG_TASK_SYMBOL_SEND_PRIO,
-             &appTaskSymbolSendStk[0],
-             (APP_CFG_TASK_SYMBOL_SEND_STK_SIZE / 10u),
-             APP_CFG_TASK_SYMBOL_SEND_STK_SIZE,
-             0,
-             0,
-             (void *) 0,
-             (OS_OPT_TASK_NONE),
-             &os_err);
-    assert(os_err == OS_ERR_NONE); /* Ensure task creation is successful */
+
 
     /* Delete the start task as it is no longer needed */
     OSTaskDel((OS_TCB *)0, &os_err);
     assert(os_err == OS_ERR_NONE);
 }
 /*****************************************************************************************
-* TASK #1 - Symbol Switch
-* This task switches between what symbol is being sent over to the device and updates the
-* menu to reflect it
+* TASK - Symbol Control
+* This task handles 2 jobs depending on the button press of either sending  or switching
+* the symbols
 *****************************************************************************************/
-static void appTaskSymbolSwitch(void *p_arg) {
+static void appTaskSymbolControl(void *p_arg) {
     OS_ERR os_err;               /* To catch OS errors */
     INT32U sw_in = 0;           /* Switch input value */
 
@@ -143,7 +126,7 @@ static void appTaskSymbolSwitch(void *p_arg) {
     SetCurrentSymbolIndex(0);
 
     while (1) {
-        sw_in = SwPend(0, &os_err);  /* Block until Switch 2 press */
+        sw_in = SwPend(0, &os_err);  /* Block until Switch 2 or Switch 3 press */
         assert(os_err == OS_ERR_NONE); /* Should be no error in the switch press */
 
         /* Check for Switch 2 press event */
@@ -152,35 +135,15 @@ static void appTaskSymbolSwitch(void *p_arg) {
         	INT8U next_index = (INT8U)((GetCurrentSymbolIndex() + 1) % SYMBOL_COUNT);
             SetCurrentSymbolIndex(next_index); /* Update index to match next_index and update the display */
         }
-    }
-}
-
-
-
-
-/*****************************************************************************************
-* TASK #2 - Symbol Send
-* This task handles sending selected symbols over to my device
-*****************************************************************************************/
-static void appTaskSymbolSend(void *p_arg) {
-    OS_ERR os_err;               /* To catch OS errors */
-    INT32U sw_in = 0;            /* Switch input value */
-
-    (void)p_arg;
-    while (1) {
-        sw_in = SwPend(0, &os_err);  /* Block until Switch 3 press */
-        assert(os_err == OS_ERR_NONE);
 
         /* Check for Switch 3 press */
         if (sw_in == SW3) {
-
             /* PROTOTYPE CODE TO TEST MY PROGRAM ON */
         	/* I eventually want something more streamlined */
             const INT8C *symbol = GetCurrentSymbol();
             BIOPutStrg("\033[2;1H\033[KYour Current Symbol Is: ");
             BIOPutStrg(symbol);
             BIOPutStrg("\033[3;1H\033[KUse copy+paste to bring your symbol over.");
-
         }
     }
 }
