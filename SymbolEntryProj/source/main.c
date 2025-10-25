@@ -124,6 +124,10 @@ static void appTaskSymbolControl(void *p_arg) {
 
     /* Display the initial menu with the first symbol selected */
     SetCurrentSymbolIndex(0);
+    const INT8C *symbol = GetCurrentSymbol();
+    BIOPutStrg("\033[2;1H\033[KSYMBOL_IDX: ");
+    BIOPutStrg(symbol);
+    BIOPutStrg("\n");
 
     while (1) {
         sw_in = SwPend(0, &os_err);  /* Block until Switch 2 or Switch 3 press */
@@ -134,16 +138,20 @@ static void appTaskSymbolControl(void *p_arg) {
             /* Move to the next symbol in the list, wrapping at SYMBOL_COUNT */
         	INT8U next_index = (INT8U)((GetCurrentSymbolIndex() + 1) % SYMBOL_COUNT);
             SetCurrentSymbolIndex(next_index); /* Update index to match next_index and update the display */
+            symbol = GetCurrentSymbol();
+            BIOPutStrg("\033[2;1H\033[KSYMBOL_IDX: ");
+            BIOPutStrg(symbol);
+            BIOPutStrg("\n");
         }
 
         /* Check for Switch 3 press */
         if (sw_in == SW3) {
             /* PROTOTYPE CODE TO TEST MY PROGRAM ON */
         	/* I eventually want something more streamlined */
-            const INT8C *symbol = GetCurrentSymbol();
-            BIOPutStrg("\033[2;1H\033[KYour Current Symbol Is: ");
+            symbol = GetCurrentSymbol();
+            BIOPutStrg("\033[3;1H\033[KYour Current Symbol Is: ");
             BIOPutStrg(symbol);
-            BIOPutStrg("\033[3;1H\033[KUse copy+paste to bring your symbol over.");
+            BIOPutStrg("\n");
         }
     }
 }
