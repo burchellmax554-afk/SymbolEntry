@@ -125,7 +125,7 @@ static void appTaskSymbolControl(void *p_arg) {
     /* Display the initial menu with the first symbol selected */
     SetCurrentSymbolIndex(0);
     const INT8C *symbol = GetCurrentSymbol();
-    BIOPutStrg("\033[2;1H\033[KSYMBOL_IDX: ");
+    BIOPutStrg("\nSYMBOL_IDX: ");
     BIOPutStrg(symbol);
     BIOPutStrg("\n");
 
@@ -139,7 +139,7 @@ static void appTaskSymbolControl(void *p_arg) {
         	INT8U next_index = (INT8U)((GetCurrentSymbolIndex() + 1) % SYMBOL_COUNT);
             SetCurrentSymbolIndex(next_index); /* Update index to match next_index and update the display */
             symbol = GetCurrentSymbol();
-            BIOPutStrg("\033[2;1H\033[KSYMBOL_IDX: ");
+            BIOPutStrg("\nSYMBOL_IDX: ");
             BIOPutStrg(symbol);
             BIOPutStrg("\n");
         }
@@ -149,7 +149,7 @@ static void appTaskSymbolControl(void *p_arg) {
             /* PROTOTYPE CODE TO TEST MY PROGRAM ON */
         	/* I eventually want something more streamlined */
             symbol = GetCurrentSymbol();
-            BIOPutStrg("\033[3;1H\033[KYour Current Symbol Is: ");
+            BIOPutStrg("\nYour Current Symbol Is: ");
             BIOPutStrg(symbol);
             BIOPutStrg("\n");
         }
